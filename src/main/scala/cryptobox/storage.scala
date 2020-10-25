@@ -3,7 +3,7 @@ package cryptobox
 import java.nio.file.{Files, Path, Paths, StandardOpenOption}
 
 import cats.effect._
-import cats.effect.concurrent.{Ref, Semaphore}
+import cats.effect.concurrent.Ref
 import cats.syntax.all._
 
 import scala.io.Source
@@ -126,7 +126,7 @@ class PlainTextFileStorage[F[_], K, V](
 
 object PlainTextFileStorage {
   def of[F[_], K, V](path: String)(implicit
-      F: Concurrent[F],
+      F: Sync[F],
       kmarshaller: Marshaller[F, K, String],
       vmarshaller: Marshaller[F, V, String],
       vunmarshaller: Unmarshaller[F, V, String]
@@ -137,18 +137,18 @@ object PlainTextFileStorage {
       entries <- Ref[F].of(map)
     } yield new PlainTextFileStorage[F, K, V](path, entries)
 
-  private def read[F[_]](path: String)(implicit F: Concurrent[F]): F[Map[String, String]] =
+  private def read[F[_]](path: String)(implicit F: Sync[F]): F[Map[String, String]] =
     Files.list(Paths.get(path)).iterator().asScala.toList
       .map(p => p.getFileName.toString -> mkResource(p))
       .map(e => readFile(e._1, e._2))
       .sequence
       .map(_.toMap)
 
-  private def mkResource[F[_]](p: Path)(implicit F: Concurrent[F]): Resource[F, Source] =
+  private def mkResource[F[_]](p: Path)(implicit F: Sync[F]): Resource[F, Source] =
     Resource.make { F.delay(Source.fromFile(p.toFile)) } { src =>
       F.delay(src.close).handleErrorWith(_ => F.pure(()))
     }
 
-  private def readFile[F[_]](name: String, r: Resource[F, Source])(implicit F: Concurrent[F]): F[(String, String)] =
+  private def readFile[F[_]](name: String, r: Resource[F, Source])(implicit F: Sync[F]): F[(String, String)] =
     r.use[F, (String, String)] { src => F.delay(name -> src.getLines().mkString("\n")) }
 }
