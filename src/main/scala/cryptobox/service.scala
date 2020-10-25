@@ -16,16 +16,18 @@ case class Service[F[_]](
     create(handle)
   }
 
-  def create(handle: String): F[String] = for {
-    privateKey <- dsa.generate
-    _ <- storage.set(handle, privateKey)
-  } yield handle
+  def create(handle: String): F[String] =
+    for {
+      privateKey <- dsa.generate
+      _ <- storage.set(handle, privateKey)
+    } yield handle
 
-  def sign(msg: String, handle: String): F[String] = for {
-    privateKey <- storage.get(handle)
-    signature <- dsa.sign(msg, privateKey)
-    base64 <- F.delay(signature.toBase64)
-  } yield base64
+  def sign(msg: String, handle: String): F[String] =
+    for {
+      privateKey <- storage.get(handle)
+      signature <- dsa.sign(msg, privateKey)
+      base64 <- F.delay(signature.toBase64)
+    } yield base64
 
   def verify(msg: String, signatureString: String, handle: String): F[Boolean] =
     for {

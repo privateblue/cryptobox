@@ -23,7 +23,11 @@ trait Unmarshaller[F[_], T, M] {
 object Marshalling {
   def apply[F[_],T, M](
       to: T => M
-  )(from: M => T)(implicit F: Sync[F]): Marshaller[F, T, M] with Unmarshaller[F, T, M] =
+  )(
+      from: M => T
+  )(implicit
+      F: Sync[F]
+  ): Marshaller[F, T, M] with Unmarshaller[F, T, M] =
     new Marshaller[F, T, M] with Unmarshaller[F, T, M] {
       def marshal(value: T): F[M] = F.delay(to(value))
       def unmarshal(repr: M): F[T] = F.delay(from(repr))

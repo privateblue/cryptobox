@@ -108,7 +108,12 @@ case class HttpApi[F[_]: Async](service: Service[F]) {
 
   def response[T: Encoder](status: Status, value: Option[T]): Response[F] =
     value match {
-      case Some(v) => Response(status = status, body = implicitly[EntityEncoder[F, Json]].toEntity(v.asJson).body)
-      case None => Response(status = status)
+      case Some(v) =>
+        Response(
+          status = status,
+          body = implicitly[EntityEncoder[F, Json]].toEntity(v.asJson).body
+        )
+      case None =>
+        Response(status = status)
     }
 }
