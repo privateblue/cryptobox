@@ -65,6 +65,7 @@ object VerifyResponse {
 case class HttpApi[F[_]: Async](service: Service[F]) {
   val rpcApi = HttpRoutes.of[F] {
 
+    // An RPC-like api
     case req @ POST -> Root / "create" =>
       val result = for {
         createReq <- req.as[CreateRequest]
@@ -94,7 +95,43 @@ case class HttpApi[F[_]: Async](service: Service[F]) {
 
   }
 
-  val app = Router("/rpc" -> rpcApi).orNotFound
+  // A REST-like api
+  val restApi = HttpRoutes.of[F] {
+    case req @ PUT -> Root / "handle" =>
+      val result = for {
+        createReq <- req.as[CreateRequest]
+        // TODO request validation
+        handle <- service.create
+      } yield CreateResponse(handle)
+      result.map(responseOk(_)).recover(handler)
+
+    case req @ PUT -> Root / "handle" / handle =>
+      val result = for {
+        createReq <- req.as[CreateRequest]
+        // TODO request validation
+        handle <- service.create(handle)
+      } yield CreateResponse(handle)
+      result.map(responseOk(_)).recover(handler)
+
+    case req @ POST -> Root / "handle" / handle / "signature" =>
+      val result = for {
+        signReq <- req.as[SignRequest]
+        // TODO request validation
+        signature <- service.sign(signReq.message, handle)
+      } yield SignResponse(signature)
+      result.map(responseOk(_)).recover(handler)
+
+
+    case req @ POST -> Root / "handle" / handle / "signature" / "verification" =>
+      val result = for {
+        verifyReq <- req.as[VerifyRequest]
+        // TODO request validation
+        verified <- service.verify(verifyReq.message, verifyReq.signature, handle)
+      } yield VerifyResponse(verified)
+      result.map(responseOk(_)).recover(handler)
+  }
+
+  val app = Router("/rpc" -> rpcApi, "/rest" -> restApi).orNotFound
 
   def responseOk[T: Encoder](value: T): Response[F] =
     response(Status.Ok, Some(value))

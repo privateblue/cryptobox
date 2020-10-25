@@ -44,21 +44,24 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "generate key, sign message, and verify signature successfully" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = None).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle"
         )
         resp1 <- httpApp.run(req1)
         handleResp <- resp1.as[CreateResponse]
         req2 <- POST(
           SignRequest(message = "Hello World", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         resp2 <- httpApp.run(req2)
         signResp <- resp2.as[SignResponse]
         req3 <- POST(
           VerifyRequest(message = "Hello World", signature = signResp.signature, handle = handleResp.handle).asJson,
-          uri"/rpc/verify"
+          //uri"/rpc/verify"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature" / "verification"
         )
         resp3 <- httpApp.run(req3)
       } yield resp3
@@ -71,26 +74,30 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "fail if handles mixed-up" in {
       val program = for {
-        dummyReq <- POST(
+        dummyReq <- PUT( //POST(
           CreateRequest(handle = Some("bla")).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle" / "bla"
         )
         _ <- httpApp.run(dummyReq)
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = None).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle"
         )
         resp1 <- httpApp.run(req1)
         handleResp <- resp1.as[CreateResponse]
         req2 <- POST(
           SignRequest(message = "Hello World", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         resp2 <- httpApp.run(req2)
         signResp <- resp2.as[SignResponse]
         req3 <- POST(
           VerifyRequest(message = "Hello World", signature = signResp.signature, handle = "bla").asJson,
-          uri"/rpc/verify"
+          //uri"/rpc/verify"
+          uri"" / "rest" / "handle" / "bla" / "signature" / "verification"
         )
         resp3 <- httpApp.run(req3)
       } yield resp3
@@ -103,27 +110,31 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "fail if signatures mixed-up" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = None).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle"
         )
         resp1 <- httpApp.run(req1)
         handleResp <- resp1.as[CreateResponse]
         dummyReq <- POST(
           SignRequest(message = "Lorem Ipsum", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         dummyResp <- httpApp.run(dummyReq)
         dummySig <- dummyResp.as[SignResponse]
         req2 <- POST(
           SignRequest(message = "Hello World", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         resp2 <- httpApp.run(req2)
         signResp <- resp2.as[SignResponse]
         req3 <- POST(
           VerifyRequest(message = "Hello World", signature = dummySig.signature, handle = handleResp.handle).asJson,
-          uri"/rpc/verify"
+          //uri"/rpc/verify"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature" / "verification"
         )
         resp3 <- httpApp.run(req3)
       } yield resp3
@@ -136,21 +147,24 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "fail if messages mixed-up" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = None).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle"
         )
         resp1 <- httpApp.run(req1)
         handleResp <- resp1.as[CreateResponse]
         req2 <- POST(
           SignRequest(message = "Hello World", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         resp2 <- httpApp.run(req2)
         signResp <- resp2.as[SignResponse]
         req3 <- POST(
           VerifyRequest(message = "Lorem Ipsum", signature = signResp.signature, handle = handleResp.handle).asJson,
-          uri"/rpc/verify"
+          //uri"/rpc/verify"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature" / "verification"
         )
         resp3 <- httpApp.run(req3)
       } yield resp3
@@ -165,7 +179,8 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
       val program = for {
         req <- POST(
           SignRequest(message = "Hello World", handle = "foo").asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / "foo" / "signature"
         )
         resp <- httpApp.run(req)
       } yield resp
@@ -177,21 +192,24 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "fail to verify with non-existent handle" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = None).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle"
         )
         resp1 <- httpApp.run(req1)
         handleResp <- resp1.as[CreateResponse]
         req2 <- POST(
           SignRequest(message = "Hello World", handle = handleResp.handle).asJson,
-          uri"/rpc/sign"
+          //uri"/rpc/sign"
+          uri"" / "rest" / "handle" / handleResp.handle / "signature"
         )
         resp2 <- httpApp.run(req2)
         signResp <- resp2.as[SignResponse]
         req3 <- POST(
           VerifyRequest(message = "Hello World", signature = signResp.signature, handle = "bar").asJson,
-          uri"/rpc/verify"
+          //uri"/rpc/verify"
+          uri"" / "rest" / "handle" / "bar" / "signature" / "verification"
         )
         resp3 <- httpApp.run(req3)
       } yield resp3
@@ -203,9 +221,10 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "create requested handle if available" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = Some("baz")).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle" / "baz"
         )
         resp1 <- httpApp.run(req1)
       } yield resp1
@@ -218,14 +237,16 @@ class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
 
     "fail to generate keys for a handle already in use" in {
       val program = for {
-        req1 <- POST(
+        req1 <- PUT( //POST(
           CreateRequest(handle = Some("hello")).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle" / "hello"
         )
         resp1 <- httpApp.run(req1)
-        req2 <- POST(
+        req2 <- PUT( //POST(
           CreateRequest(handle = Some("hello")).asJson,
-          uri"/rpc/create"
+          //uri"/rpc/create"
+          uri"" / "rest" / "handle" / "hello"
         )
         resp2 <- httpApp.run(req2)
       } yield resp2
