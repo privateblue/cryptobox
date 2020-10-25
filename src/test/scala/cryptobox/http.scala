@@ -1,6 +1,10 @@
 package cryptobox
 
+import java.nio.file.{Files, Paths}
+import java.util.Comparator
+
 import cats.effect._
+import com.starkbank.ellipticcurve.PrivateKey
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s._
@@ -8,14 +12,33 @@ import org.http4s.circe._
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io._
 import org.http4s.implicits._
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers._
 import org.scalatest.wordspec._
 
-class HttpSpec extends AnyWordSpec with should.Matchers {
+import scala.concurrent.ExecutionContext.Implicits.global
 
+class HttpSpec extends AnyWordSpec with should.Matchers with BeforeAndAfterAll {
+
+  val db = "testdata"
+
+  implicit val cs: ContextShift[IO] = IO.contextShift(global)
   import Service._
-  val service = Service[IO](StarBankECDSA.apply, InMemoryStorage.apply)
-  val httpApp = HttpApi[IO](service).app
+
+  val httpApp = {
+    val init = for {
+      ecdsa <- StarBankECDSA.of[IO]
+      storage <- PlainTextFileStorage.of[IO, String, PrivateKey](db)
+      service = Service[IO](ecdsa, storage)
+      httpApp = HttpApi[IO](service).app
+    } yield httpApp
+    init.unsafeRunSync()
+  }
+
+  override def afterAll(): Unit = {
+    Files.list(Paths.get(db)).sorted(Comparator.reverseOrder()).forEach(_.toFile.delete())
+    Files.delete(Paths.get(db))
+  }
 
   "Http Api" should {
 

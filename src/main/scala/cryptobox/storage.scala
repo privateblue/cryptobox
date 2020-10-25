@@ -7,6 +7,7 @@ import cats.effect.concurrent.{Ref, Semaphore}
 import cats.syntax.all._
 
 import scala.io.Source
+import scala.jdk.CollectionConverters._
 
 trait Storage[F[_], K, KM, V, VM] {
   def get(key: K): F[V]
@@ -100,7 +101,8 @@ object InMemoryStorage {
     new InMemoryStorage(entries)
 }
 
-abstract class PlainTextFileStorage[F[_], K, V](
+class PlainTextFileStorage[F[_], K, V](
+    path: String,
     entries: Ref[F, Map[String, String]]
 )(implicit
     F: Sync[F],
@@ -108,14 +110,17 @@ abstract class PlainTextFileStorage[F[_], K, V](
     vmarshaller: Marshaller[F, V, String],
     vunmarshaller: Unmarshaller[F, V, String]
 ) extends InMemoryStorage[F, K, V](entries) {
-  protected def append(key: String, value: String): F[Unit]
+  protected def write(key: String, value: String): F[Unit] =
+    F.delay{
+      Files.write(Paths.get(s"$path/$key"), value.getBytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+    }
 
   override def set(key: K, value: V): F[Unit] =
     for {
       keyS <- kmarshaller.marshal(key)
       valueS <- vmarshaller.marshal(value)
       _ <- super.set(key, value)
-      _ <- append(keyS, valueS)
+      _ <- write(keyS, valueS)
     } yield ()
 }
 
@@ -125,38 +130,25 @@ object PlainTextFileStorage {
       kmarshaller: Marshaller[F, K, String],
       vmarshaller: Marshaller[F, V, String],
       vunmarshaller: Unmarshaller[F, V, String]
-  ): F[PlainTextFileStorage[F, K, V]] = {
-    val source = Resource.make { F.delay(Source.fromFile(path)) } { src =>
+  ): F[PlainTextFileStorage[F, K, V]] =
+    for {
+      _ <- F.delay { if (!Files.isDirectory(Paths.get(path))) Files.createDirectory(Paths.get(path)) }
+      map <- read(path)
+      entries <- Ref[F].of(map)
+    } yield new PlainTextFileStorage[F, K, V](path, entries)
+
+  private def read[F[_]](path: String)(implicit F: Concurrent[F]): F[Map[String, String]] =
+    Files.list(Paths.get(path)).iterator().asScala.toList
+      .map(p => p.getFileName.toString -> mkResource(p))
+      .map(e => readFile(e._1, e._2))
+      .sequence
+      .map(_.toMap)
+
+  private def mkResource[F[_]](p: Path)(implicit F: Concurrent[F]): Resource[F, Source] =
+    Resource.make { F.delay(Source.fromFile(p.toFile)) } { src =>
       F.delay(src.close).handleErrorWith(_ => F.pure(()))
     }
-    for {
-      _ <- F.delay {
-        if (!Files.exists(Paths.get(path))) Files.createFile(Paths.get(path))
-      }
-      map <- source.use[F, Map[String, String]](src => readDb(src))
-      entries <- Ref[F].of(map)
-      dbWrite <- Semaphore[F](1)
-    } yield new PlainTextFileStorage[F, K, V](entries) {
-      protected def append(key: String, value: String): F[Unit] =
-        for {
-          _ <- dbWrite.acquire
-          record = s"$key\n$value"
-          _ <- F.delay(Files.write(Paths.get(path), record.getBytes, StandardOpenOption.APPEND))
-          _ <- dbWrite.release
-        } yield ()
-    }
-  }
 
-  def readDb[F[_]](src: Source)(implicit F: Concurrent[F]): F[Map[String, String]] =
-    F.delay {
-      val acc = (Option.empty[String], Option.empty[String], Map.empty[String, String])
-      val (_, _, map) = src.getLines().foldLeft(acc) {
-        case ((None, None, map), l) => (Some(l), None, map)
-        case ((Some(k), None, map), l) if l.startsWith("-----") => (Some(k), Some(l), map)
-        case ((Some(k), Some(v), map), l) if l.startsWith("-----") => (None, None, map + (k -> v.concat("\n").concat(l)))
-        case ((Some(k), Some(v), map), l) => (Some(k), Some(v.concat("\n").concat(l)), map)
-        case ((k, v, map), l) => (k, v, map)
-      }
-      map
-    }
+  private def readFile[F[_]](name: String, r: Resource[F, Source])(implicit F: Concurrent[F]): F[(String, String)] =
+    r.use[F, (String, String)] { src => F.delay(name -> src.getLines().mkString("\n")) }
 }

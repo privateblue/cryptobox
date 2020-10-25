@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Main extends IOApp {
 
   // TODO configuration file, instead of hardcoding host, port, db location
-  val db = "cryptobox.keys"
+  val db = "data"
   val host = "localhost"
   val port = 8080
 
