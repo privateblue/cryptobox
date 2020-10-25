@@ -1,5 +1,3 @@
-# cryptobox
-
 ## Build and run
 
 After pulling the repository, execute
