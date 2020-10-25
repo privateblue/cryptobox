@@ -100,10 +100,16 @@ case class HttpApi[F[_]: Async](service: Service[F]) {
     response(Status.Ok, Some(value))
 
   def handler: PartialFunction[Throwable, Response[F]] = {
-    // TODO logging
-    case NotFoundException(msg) => response(Status.NotFound, None)
-    case AlreadyExistsException(msg) => response(Status.Conflict, None)
-    case e => response(Status.InternalServerError, None)
+    // TODO proper logging instead of println's
+    case NotFoundException(msg) =>
+      println(msg)
+      response(Status.NotFound, None)
+    case AlreadyExistsException(msg) =>
+      println(msg)
+      response(Status.Conflict, None)
+    case e =>
+      e.printStackTrace()
+      response(Status.InternalServerError, None)
   }
 
   def response[T: Encoder](status: Status, value: Option[T]): Response[F] =
