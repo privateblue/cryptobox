@@ -1,10 +1,6 @@
 ## Build and run
 
-After pulling the repository, execute
-```sbt run```
-to run the application. Or execute 
-```sbt test```
-to run all the tests.
+After pulling the repository, execute ```sbt run``` to run the application. Or execute  ```sbt test``` to run all the tests. When running, the server binds to `localhost:8080` by default.
 
 ## API
 
